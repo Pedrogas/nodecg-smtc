@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Now Playing</title>
+  <style>
+    :root {
+      --bg: 38, 44, 52;      /* color base de la tarjeta (se reemplaza por el de la portada) */
+      --fg: #f4f1ec;
+      --fg-soft: rgba(244, 241, 236, 0.72);
+      --track: rgba(255, 255, 255, 0.22);
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body {
+      width: 640px; height: 160px;
+      background: transparent;
+      overflow: hidden;
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    }
+
+    .card {
+      position: absolute; inset: 10px;
+      display: flex; align-items: center; gap: 18px;
+      padding: 14px 22px 14px 14px;
+      border-radius: 14px;
+      color: var(--fg);
+      background: rgb(var(--bg));
+      transition: background-color 0.8s ease, opacity 0.5s ease, transform 0.5s ease;
+      opacity: 0; transform: translateX(-16px);
+    }
+    .card.visible { opacity: 1; transform: none; }
+    .card.paused .cover { filter: saturate(0.4); }
+
+    .cover {
+      flex: none; width: 112px; height: 112px;
+      border-radius: 8px; object-fit: cover;
+      background: rgba(255, 255, 255, 0.12);
+      transition: filter 0.4s ease;
+    }
+
+    .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .title {
+      font-size: 26px; font-weight: 650; line-height: 1.15;
+      letter-spacing: -0.01em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .artist {
+      font-size: 18px; color: var(--fg-soft);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .progress { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+    .fill { height: 100%; width: 0; background: var(--fg); border-radius: 2px; }
+    .time {
+      font-size: 13px; color: var(--fg-soft);
+      font-variant-numeric: tabular-nums; min-width: 38px;
+    }
+    .time.end { text-align: right; }
+
+    .swap { animation: swap 0.5s ease; }
+    @keyframes swap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card, .cover { transition: none; }
+      .swap { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <img class="cover" id="cover" alt="">
+    <div class="info">
+      <div class="title" id="title"></div>
+      <div class="artist" id="artist"></div>
+      <div class="progress" id="progress">
+        <span class="time" id="pos">0:00</span>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+        <span class="time end" id="dur">0:00</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const card = $('card'), cover = $('cover');
+    const titleEl = $('title'), artistEl = $('artist');
+    const fill = $('fill'), posEl = $('pos'), durEl = $('dur'), progressEl = $('progress');
+
+    // Con ?showPaused=1 en la URL, la tarjeta sigue visible en pausa.
+    const showPaused = new URLSearchParams(location.search).get('showPaused') === '1';
+
+    let state = null;
+    let receivedAt = performance.now();
+    let lastTrackKey = '';
+
+    function fmt(ms) {
+      const s = Math.max(0, Math.floor(ms / 1000));
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }
+
+    // Color promedio de la portada para teñir la tarjeta.
+    function tintFromCover(src) {
+      if (!src) { setTint([38, 44, 52]); return; }
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = c.height = 1;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+          // Se oscurece un poco para que el texto claro siempre se lea.
+          const k = 0.55;
+          setTint([r * k, g * k, b * k].map(Math.round));
+        } catch { setTint([38, 44, 52]); }
+      };
+      img.onerror = () => setTint([38, 44, 52]);
+      img.src = src;
+    }
+    function setTint(rgb) {
+      document.documentElement.style.setProperty('--bg', rgb.join(', '));
+    }
+
+    function swapAnim(el) {
+      el.classList.remove('swap');
+      void el.offsetWidth;
+      el.classList.add('swap');
+    }
+
+    function render(s) {
+      state = s;
+      receivedAt = performance.now();
+
+      const visible = s.connected && s.active && (s.playing || showPaused);
+      card.classList.toggle('visible', visible);
+      card.classList.toggle('paused', !s.playing);
+      if (!s.active) return;
+
+      const key = `${s.app}|${s.title}|${s.artist}`;
+      if (key !== lastTrackKey) {
+        lastTrackKey = key;
+        titleEl.textContent = s.title;
+        artistEl.textContent = s.artist;
+        cover.src = s.thumbnail || '';
+        cover.style.visibility = s.thumbnail ? 'visible' : 'hidden';
+        tintFromCover(s.thumbnail);
+        swapAnim(titleEl); swapAnim(artistEl);
+      }
+      durEl.textContent = fmt(s.duration);
+      progressEl.style.visibility = s.duration > 0 ? 'visible' : 'hidden';
+    }
+
+    function tick() {
+      if (state && state.duration > 0) {
+        const pos = state.playing
+          ? state.position + (performance.now() - receivedAt) * state.rate
+          : state.position;
+        const clamped = Math.min(pos, state.duration);
+        fill.style.width = `${(clamped / state.duration) * 100}%`;
+        posEl.textContent = fmt(clamped);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    const rep = nodecg.Replicant('nowPlaying');
+    rep.on('change', (v) => { if (v) render(v); });
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

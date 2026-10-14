@@ -1,0 +1,25 @@
+{
+  "name": "nodecg-smtc",
+  "version": "1.0.0",
+  "description": "Now Playing para NodeCG usando SMTC Bridge desarrollado por Nutty",
+  "license": "MIT",
+  "nodecg": {
+    "compatibleRange": "^2.0.0",
+    "graphics": [
+      {
+        "file": "now-playing.html",
+        "width": 640,
+        "height": 160
+      }
+    ],
+    "dashboardPanels": [
+      {
+        "name": "now-playing",
+        "title": "Now Playing",
+        "width": "2",
+        "file": "panel.html",
+        "headerColor": "#3b4a5a"
+      }
+    ]
+  }
+}

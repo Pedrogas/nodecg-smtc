@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; color: #e8e8e8; }
+    .row { display: flex; gap: 12px; align-items: center; }
+    img { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; background: #444; }
+    .meta { min-width: 0; }
+    .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub { opacity: 0.75; font-size: 13px; }
+    .status { margin-top: 10px; font-size: 13px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #c0504d; }
+    .dot.ok { background: #5fae6a; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <img id="cover" alt="">
+    <div class="meta">
+      <div class="title" id="title">Sin reproducción</div>
+      <div class="sub" id="artist"></div>
+      <div class="sub" id="app"></div>
+    </div>
+  </div>
+  <div class="status"><span class="dot" id="dot"></span><span id="conn">Esperando a SMTC Bridge…</span></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    nodecg.Replicant('nowPlaying').on('change', (s) => {
+      if (!s) return;
+      $('dot').classList.toggle('ok', s.connected);
+      $('conn').textContent = s.connected
+        ? 'Conectado a SMTC Bridge'
+        : 'Sin conexión: ¿está corriendo SMTC Bridge?';
+      $('title').textContent = s.active ? s.title : 'Sin reproducción';
+      $('artist').textContent = s.active ? s.artist : '';
+      $('app').textContent = s.active ? `${s.app} · ${s.playing ? 'reproduciendo' : 'en pausa'}` : '';
+      $('cover').src = s.thumbnail || '';
+      $('cover').style.visibility = s.thumbnail ? 'visible' : 'hidden';
+    });
+  </script>
+</body>
+</html>
