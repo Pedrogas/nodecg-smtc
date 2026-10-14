@@ -1,4 +1,4 @@
-# nodecg-smtc-now-playing
+# nodecg-smtc
 
 Bundle de NodeCG v2 que muestra "Now Playing" usando [SMTC Bridge](https://github.com/nuttylmao/smtc-bridge).
 
